@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kf-DLMS"
+version = "0.1.0"
+description = "DLMS 电表通信自动化测试框架"
+requires-python = ">=3.9"
+dependencies = [
+    "gurux-dlms",
+    "pyserial",
+    "crcmod",
+    "pymysql",
+]
+
+[tool.setuptools]
+packages = ["kf_DLMS"]
