@@ -1,0 +1,87 @@
+自动化测试框架(DLMS)开发日志
+原先进度, 时间已不可考:
+1. 添加固定通信帧连接, 调试成功, 可以连接
+2. 添加kf_dlms.py, 使连接协议栈跑通,构筑简单的连接方法,断开方法, 下发固定数据帧方法
+
+
+7/31进度：通讯连接已完成，两段校验码已添加
+1. 注意APDU帧前面还有个Invoke‑Id，这个id从1开始计数，到12后返回1重新开始计数，实际并没有用上，id相同还是可以读取数据
+2. APDU帧有点奇怪，C0 03 C1 02 00 03 01 00 20 07 00 FF 03 00，"C0 03”是什么意思？读取时钟的时候是01 -- GetRequestNormal, 长度1, 这里读取时钟,长度就是2, 我也不知道为什么是3, 读取类3的属性2, 就是长度3
+3. 添加CRC两层校验
+4. 添加手动组APDU报文脚本
+
+
+8/6进度:
+1. 添加将通信报文解析为xml格式的报文, 并从中取数据
+2. 添加通过OBIS, 类, 方法生成APDU报文, 根据外部三方库组帧,废弃原有手动组帧方案
+3. 添加一个外部文件frmae_type.json, 用于存储frame_type, 这个值每次通信都会累加
+4. 添加kf_clock.py电表16进制时钟解析程序, 并且可以通过传入特定周期和偏移时间,进行时钟偏移
+5. 通信报文的frame_type到了1E后, 会自动重置, 从10开始
+6. 添加save_frame_type()方法保存fram_type
+7. 添加load_frame_type()方法读取fram_type
+8. 添加reset_frame_type()方法重置fram_type
+9. 添加kf_return_parsing.py, 实现解析通信报文, 并转化成xml格式的数据, 可以从中取数据
+
+
+
+8/7进度:
+1. 更新kf_APDU.py, 将读取和设置的APDU返回值数据类型更新为str类型
+2. 新增kf_HDLC.py, 可以组完整的HDLC数据帧
+3. kf_dlms类中添加read_message()方法, 可以传入obis, 类, 属性,组成完整的读取HDLC数据帧
+4. kf_dlms类中添加set_message()方法, 可以传入obis, 类, 属性,数据类型,数据组成完整的读取HDLC数据帧
+5. 更新kf_dlms.py中的read_data, 实现读取指定obis, 属性, 并返回设备应答报文
+6. 更新kf_dlms.py中的set_data, 实现设置指定obis, 属性, 数据, 并返回设备应答报文
+7. 更新kf_HDLC.py中的build_frame(), 区分set和read, read是'A0 19 03 25'开头, set是'A0 27 03 25'开头
+8. 更新kf_clock.py中的next_cycle_boundary_clock()方法, timedate格式的时钟转化为DLMS 12字节 hex 字符串, 保留原百毫秒/偏移/状态
+9. 新增负荷曲线上限测试脚本, 根据当前负荷曲线冻结上限和冻结周期自动校时, 达到上限-1条后停止
+
+类7对应属性:
+attribute 1: logical_name
+
+attribute 2: buffer (array of capture objects)
+
+attribute 3: capture_objects
+
+attribute 4: capture_period
+
+attribute 5: sort_method
+
+attribute 6: sort_object
+
+attribute 7: entries_in_use
+
+attribute 8: profile_entries
+
+后续更新预估(预计要做, 但还没做):
+1. 新增kf_info.py, 增加日志打印, 使测试记录可追溯
+2. 调试set/read多条数据并行
+3. 增加负荷曲线Buffer读取及解析对比
+4. 封装现有所有py文件,简化页面效果 -- 已完成
+5. 定义标准OBIS_list和数据类型
+6. 增加测试脚本执行结果
+7. 增加一键执行, 自动筛选不需要测试的脚本
+8. 增加读取结果有多条相同数据类型时的解析
+9. 执行脚本时,需要另起一个线程, 执行发送心跳帧的任务
+
+
+
+
+8/13进度:
+1. 更新kf_dlms.py中的set_data(), 新增接收原始报文打印
+2. 添加kf_info.py, 新增控制台打印info(), 新增kf_info()控制台和日志同时打印, 新增log_info()仅日志打印
+3. 全面更新框架, 将日志打印添加进框架内
+
+
+
+
+8/18进度:
+1. 将kf开头的所有py文件封装为Python包dlms_core, 修正内部相对导入, 消除kf_dlms与kf_return_parsing的循环依赖, 新增__init__.py统一导出API, 新增pyproject.toml支持pip安装
+2. 更新main.py, F01_DLMS下脚本, crc_test.py的导入方式, 统一改为from kf_DLMS import *
+3. 将包名由dlms_core改为kf_DLMS
+4. 新增kf_clock.py中的next_month_boundary_clock()方法, 传入DLMS 12字节时钟和偏移秒(支持正负), 生成当月最后一天的跨月点(下月1日00:00:00)并叠加偏移, 如传入07EA080E05101D39008000FF, -3, 生成2026-08-31 23:59:57
+5. 新增F01_DLMS/clock/clock_1_1.py测试脚本, 校时至当月最后一天跨月点前, 偏移随机300~600s, 等待随机数+30s, 循环11次
+6. 更新kf_dlms.py, DLMSClient的frame_type_file参数自动定位, 放在执行脚本所在目录的上一级, 即与功能模块文件夹(如clock)平级, 脚本在项目根目录时仍放在根目录 
+
+
+
+
